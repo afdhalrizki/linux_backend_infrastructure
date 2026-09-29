@@ -1,0 +1,51 @@
+# =========================================================
+# POSTFIX MAIN CONFIGURATION (Production Ready for iCloud)
+# =========================================================
+
+# Basic Server Identity
+myhostname = mail.yourdomain.com
+mydomain = yourdomain.com
+myorigin = $mydomain
+
+# Network Interfaces & Protocol
+inet_interfaces = all
+inet_protocols = ipv4
+
+# Destination Settings
+mydestination = $myhostname, localhost.$mydomain, localhost, $mydomain
+
+# Relay and Trusted Networks
+mynetworks = 127.0.0.0/8 [::1]/128
+
+# Mailbox Transport & Delivery via Dovecot SASL
+smtpd_sasl_type = dovecot
+smtpd_sasl_path = private/auth
+smtpd_sasl_auth_enable = yes
+
+# HELO Name Alignment (Crucial for PTR/Reverse DNS matching with iCloud)
+smtp_helo_name = $myhostname
+
+# TLS Parameters for Secure Mail Transmission
+smtpd_tls_security_level = may
+smtpd_tls_auth_only = yes
+smtpd_tls_protocols = !SSLv2, !SSLv3, !TLSv1, !TLSv1.1
+smtp_tls_security_level = may
+
+# Anti-Spam, HELO Validation & Access Restrictions
+smtpd_recipient_restrictions =
+    permit_sasl_authenticated,
+    permit_mynetworks,
+    reject_unauth_destination,
+    reject_non_fqdn_sender,
+    reject_non_fqdn_recipient,
+    reject_invalid_helo_hostname,
+    reject_non_fqdn_helo_hostname
+
+# OpenDKIM Integration (Essential to pass Apple/iCloud strict spam filters)
+milter_default_action = accept
+milter_protocol = 2
+smtpd_milters = inet:127.0.0.1:8891
+non_smtpd_milters = inet:127.0.0.1:8891
+
+# Message Size Limit (e.g., 20MB max email size)
+message_size_limit = 20971520

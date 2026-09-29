@@ -1,0 +1,86 @@
+version: '3.8'
+
+networks:
+  app-net:
+    driver: bridge
+
+services:
+  # 1. HAProxy at the frontend (Edge & SSL Termination simulation)
+  haproxy:
+    image: haproxy:2.8-alpine
+    container_name: haproxy_edge
+    restart: always
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./proxy/haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    networks:
+      - app-net
+
+  # 2. Traefik as Dynamic Internal Reverse Proxy
+  traefik:
+    image: traefik:v3.7
+    container_name: traefik_router
+    restart: always
+    command:
+      - '--api.insecure=true'
+      - '--providers.docker=true'
+      - '--providers.docker.exposedbydefault=false'
+      - '--entrypoints.web.address=:80'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - app-net
+
+  # 3. PostgreSQL Database (Local substitute for Linode Managed DB)
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_DB: dbname
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    networks:
+      - app-net
+
+  # 4. Django 5 Application (Backend)
+  web:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: django_backend
+    restart: always
+    environment:
+      - DJANGO_SETTINGS_MODULE=core.settings
+      - DATABASE_URL=postgres://user:password@postgres:5432/dbname
+    depends_on:
+      - postgres
+    networks:
+      - app-net
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.web-app.rule=Host(`klien-anda.com`)'
+      - 'traefik.http.routers.web-app.entrypoints=web'
+      - 'traefik.http.services.web-app.loadbalancer.server.port=8000'
+
+  mailserver:
+    image: mailserver/docker-mailserver:latest
+    container_name: mail_server
+    restart: always
+    ports:
+      - '25:25'
+      - '587:587'
+      - '993:993'
+    environment:
+      - ENABLE_SPAMASSASSIN=1
+      - ENABLE_CLAMAV=0
+      - ENABLE_FAIL2BAN=1
+      - ENABLE_FETCHMAIL=0
+      - ONE_DOMAIN=klien-anda.com
+    volumes:
+      - ./mail-data/mail-state:/var/mail
+      - ./mail-data/mail-config:/tmp/mail-config
+    networks:
+      - app-net

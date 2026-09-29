@@ -1,0 +1,39 @@
+[DEFAULT]
+# Ban time in seconds (e.g., 1 hour = 3600)
+bantime = 3600
+
+# Time window for failed attempts tracking (e.g., 10 minutes = 600)
+findtime = 600
+
+# Maximum number of failed attempts before an IP is banned
+maxretry = 5
+
+# Log backend to use (auto or systemd)
+backend = auto
+
+[sshd]
+enabled = true
+port = ssh
+logpath = %(sshd_log)s
+maxretry = 3
+
+[postfix]
+enabled = true
+port = smtp,smtps,submission
+# Monitors Postfix logs for general connection abuse and failures
+logpath = %(postfix_log)s
+maxretry = 5
+
+[postfix-sasl]
+enabled = true
+port = smtp,smtps,submission
+filter = postfix-sasl
+# Specific filter for SMTP SASL authentication failures and HELO abuse
+logpath = %(postfix_log)s
+maxretry = 3
+
+[dovecot]
+enabled = true
+port = pop3,pop3s,imap,imaps
+logpath = %(dovecot_log)s
+maxretry = 5
